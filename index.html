@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="manifest" href="/manifest.json">
     <style>
+    
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -168,8 +169,14 @@
 <body>
     <h1>IKEA - Fuori Salone</h1>
     <h2>Scansiona Tessere IKEA Family</h2>
+    <script src="https://unpkg.com/qr-scanner@1.4.1/qr-scanner.min.js"></script>
+    <button id="toggleCameraButton">Attiva Fotocamera</button>
+<video id="cameraFeed" style="display: none; width: 100%; max-width: 400px; margin-top: 10px;" autoplay></video>
 
     <input type="text" id="scannedText" placeholder="Tessera IKEA">
+    <div id="validCodeBanner" style="display: none; width: 100%; max-width: 300px; margin: 10px auto; padding: 10px; color: white; background-color: green; text-align: center; border-radius: 5px;">
+    Tessera valida!
+</div>
     <div id="counterContainer">
         <button id="exportButton">Esporta in Excel</button>
         <button id="resetButton">Reset</button>
@@ -207,262 +214,223 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script>
-        const scannedTextField = document.getElementById('scannedText');
-        const searchField = document.getElementById('searchField');
-        const guestListContainer = document.getElementById('guestList');
-        const guestCountSpan = document.getElementById('guestCount');
-        const exportButton = document.getElementById('exportButton');
-        const resetButton = document.getElementById('resetButton');
-        const notification = document.getElementById('notification');
-        const notificationSound = document.getElementById('notificationSound');
-        const confirmDelete = document.getElementById('confirmDelete');
-        const confirmDeleteText = document.getElementById('confirmDeleteText');
-        const addNote = document.getElementById('addNote');
-        const noteText = document.getElementById('noteText');
-        const saveNoteButton = document.getElementById('saveNoteButton');
-        const cancelNoteButton = document.getElementById('cancelNoteButton');
-        const confirmButton = document.getElementById('confirmButton');
-        const cancelButton = document.getElementById('cancelButton');
-        let guestList = JSON.parse(localStorage.getItem('guestList')) || [];
-        let guestCount = guestList.length;
-        let guestToDelete = null;
-        let guestToAddNote = null;
-
-        // Inizializza il conteggio e la lista degli ospiti
-        guestCountSpan.textContent = guestCount;
-        reorderGuestList();
-
-        scannedTextField.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                const scannedText = scannedTextField.value.trim();
-                if (scannedText) {
-                    const existingGuest = guestList.find(guest => guest.text === scannedText);
-                    if (existingGuest) {
-    showNotification(existingGuest.text);
-    scannedTextField.value = ''; // Mantiene libero il campo di testo per nuove scansioni
-} 
- else {
-                        const now = new Date();
-                        const guestItem = {
-                            text: scannedText,
-                            date: now.toLocaleDateString(),
-                            time: now.toLocaleTimeString(),
-                            note: ""
-                        };
-                        guestList.unshift(guestItem); // Aggiungi all'inizio della lista
-                        localStorage.setItem('guestList', JSON.stringify(guestList)); // Salva in localStorage
-                        reorderGuestList();
-
-                        guestCount++;
-                        guestCountSpan.textContent = guestCount;
-
-                        scannedTextField.value = '';
-                    }
-                }
-                event.preventDefault();
-            }
-        });
-
-        searchField.addEventListener('input', function(event) {
-            const searchText = event.target.value.toLowerCase();
-            if (searchText) {
-                const filteredGuests = guestList.filter(guest => guest.text.toLowerCase().includes(searchText));
-                const otherGuests = guestList.filter(guest => !guest.text.toLowerCase().includes(searchText));
-
-                guestListContainer.innerHTML = '';
-
-                filteredGuests.forEach(guestItem => {
-                    const guestItemElement = createGuestElement(guestItem);
-                    guestItemElement.classList.add('highlight');
-                    guestListContainer.appendChild(guestItemElement);
-                });
-
-                otherGuests.forEach(guestItem => {
-                    const guestItemElement = createGuestElement(guestItem);
-                    guestListContainer.appendChild(guestItemElement);
-                });
-            } else {
-                reorderGuestList();
-            }
-        });
-
-        function reorderGuestList() {
-            guestListContainer.innerHTML = '';
-            guestList.sort((a, b) => {
-                const dateA = new Date(`${a.date} ${a.time}`);
-                const dateB = new Date(`${b.date} ${b.time}`);
-                return dateB - dateA; // Orario decrescente
-            });
-
-            guestListContainer.innerHTML = '';
-const visibleGuests = guestList.slice(0, 50); // Mostra solo i primi 50 ospiti
-
-visibleGuests.forEach(guestItem => {
-    const guestItemElement = createGuestElement(guestItem);
-    guestListContainer.appendChild(guestItemElement);
-});
-
-        }
-
-        function createGuestElement(guestItem) {
-            const guestItemElement = document.createElement('div');
-            guestItemElement.classList.add('guest');
-            guestItemElement.innerHTML = `<span class="guestTime">${guestItem.time}</span><span class="guestName">${guestItem.text}</span><span class="guestNote">${guestItem.note}</span><div class="buttons"><button class="addButton">+</button><button class="deleteButton">X</button></div>`;
-
-            const deleteButton = guestItemElement.querySelector('.deleteButton');
-            deleteButton.addEventListener('click', function() {
-                guestToDelete = guestItemElement;
-                const guestName = guestToDelete.querySelector('.guestName').textContent;
-                confirmDeleteText.textContent = `Sei sicuro di voler eliminare ${guestName}?`;
-                confirmDelete.style.display = 'block';
-            });
-
-            const addButton = guestItemElement.querySelector('.addButton');
-            addButton.addEventListener('click', function() {
-                guestToAddNote = guestItemElement;
-                addNote.style.display = 'block';
-                noteText.value = ''; // reset note input field
-                noteText.focus(); // focus on the input field
-            });
-
-            return guestItemElement;
-        }
-
-        confirmButton.addEventListener('click', function() {
-            if (guestToDelete) {
-                const guestText = guestToDelete.querySelector('.guestName').textContent;
-                guestList = guestList.filter(guest => guest.text !== guestText);
-                localStorage.setItem('guestList', JSON.stringify(guestList)); // Aggiorna in localStorage
-                guestToDelete.remove();
-                guestCount--;
-                guestCountSpan.textContent = guestCount;
-                guestToDelete = null;
-                confirmDelete.style.display = 'none';
-                reorderGuestList();
-            }
-        });
-
-        cancelButton.addEventListener('click', function() {
-            guestToDelete = null;
-            confirmDelete.style.display = 'none';
-        });
         
-        exportButton.addEventListener('click', function() {
-    if (guestList.length === 0) {
-        alert("Non ci sono ospiti da esportare.");
+document.addEventListener("DOMContentLoaded", function () {
+    const scannedTextField = document.getElementById('scannedText');
+    const guestListContainer = document.getElementById('guestList');
+    const guestCountSpan = document.getElementById('guestCount');
+    const notification = document.getElementById('notification');
+    const notificationSound = document.getElementById('notificationSound');
+    const validCodeBanner = document.getElementById('validCodeBanner');
+    const exportButton = document.getElementById('exportButton');
+    const resetButton = document.getElementById('resetButton');
+    const showAllButton = document.getElementById('showAllButton');
+    const allGuestsPopup = document.getElementById('allGuestsPopup');
+    const allGuestsList = document.getElementById('allGuestsList');
+    const closePopup = document.getElementById('closePopup');
+
+    let guestList = JSON.parse(localStorage.getItem('guestList')) || [];
+    guestCountSpan.textContent = guestList.length;
+
+    scannedTextField.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const scannedText = scannedTextField.value.trim();
+
+            if (!scannedText) return;
+
+            console.log("Codice rilevato:", scannedText);
+
+            const existingGuest = guestList.find(guest => guest.text === scannedText);
+
+            if (existingGuest) {
+                showNotification(existingGuest.text);
+            } else {
+                const now = new Date();
+                const guestItem = {
+                    text: scannedText,
+                    date: now.toLocaleDateString(),
+                    time: now.toLocaleTimeString(),
+                    note: ""
+                };
+
+                guestList.unshift(guestItem);
+                localStorage.setItem('guestList', JSON.stringify(guestList));
+                updateGuestList();
+
+                guestCountSpan.textContent = guestList.length;
+                showValidCodeBanner();
+            }
+
+            scannedTextField.value = '';
+        }
+    });
+
+    function updateGuestList() {
+        guestListContainer.innerHTML = '';
+        guestList.slice(0, 50).forEach(guest => {
+            const guestItemElement = createGuestElement(guest);
+            guestListContainer.appendChild(guestItemElement);
+        });
+    }
+
+    function createGuestElement(guest) {
+        const guestItemElement = document.createElement('div');
+        guestItemElement.classList.add('guest');
+        guestItemElement.innerHTML = `
+            <span class="guestTime">${guest.time}</span>
+            <span class="guestName">${guest.text}</span>
+            <span class="guestNote">${guest.note || "Nessuna nota"}</span>
+            <div class="buttons">
+                <button class="addButton">+</button>
+                <button class="deleteButton">X</button>
+            </div>
+        `;
+
+        guestItemElement.querySelector('.deleteButton').addEventListener('click', function () {
+            guestList = guestList.filter(g => g.text !== guest.text);
+            localStorage.setItem('guestList', JSON.stringify(guestList));
+            updateGuestList();
+            guestCountSpan.textContent = guestList.length;
+        });
+
+        return guestItemElement;
+    }
+
+    function showValidCodeBanner() {
+        validCodeBanner.style.display = 'block';
+        setTimeout(() => {
+            validCodeBanner.style.display = 'none';
+        }, 3000);
+    }
+
+    function showNotification(duplicateText) {
+        notification.style.display = 'block';
+        notificationSound.play();
+        notification.textContent = `Tessera già registrata: ${duplicateText}`;
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 5000);
+    }
+
+    // 📤 **Esporta in Excel**
+    exportButton.addEventListener('click', function () {
+        if (guestList.length === 0) {
+            alert("Non ci sono ospiti da esportare.");
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+        const wsData = [["Orario", "Nome Ospite", "Nota"]];
+
+        guestList.forEach(guest => {
+            wsData.push([guest.time || "N/A", guest.text || "N/A", guest.note || ""]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 20 }];
+
+        XLSX.utils.book_append_sheet(wb, ws, "Lista Ospiti");
+
+        try {
+            XLSX.writeFile(wb, "Report_IKEA.xlsx");
+        } catch (error) {
+            console.error("Errore nell'esportazione:", error);
+            alert("Errore durante l'esportazione. Riprova.");
+        }
+    });
+
+    // 🔄 **Reset Lista**
+    resetButton.addEventListener('click', function () {
+        const password = prompt("Inserisci la password per confermare il reset:");
+        if (password === "2006") {
+            if (confirm("Sei sicuro di voler resettare tutti i dati?")) {
+                guestList = [];
+                localStorage.removeItem('guestList');
+                updateGuestList();
+                guestCountSpan.textContent = 0;
+            }
+        } else {
+            alert("Password errata. Reset annullato.");
+        }
+    });
+
+    // 👀 **Mostra Tutti gli Ospiti**
+    showAllButton.addEventListener('click', function () {
+        allGuestsList.innerHTML = '';
+        guestList.forEach((guest, index) => {
+            const guestText = document.createElement('p');
+            guestText.textContent = `${index + 1}. ${guest.time} - ${guest.text} (${guest.note || "Nessuna nota"})`;
+            allGuestsList.appendChild(guestText);
+        });
+        allGuestsPopup.style.display = 'block';
+    });
+
+    closePopup.addEventListener('click', function () {
+        allGuestsPopup.style.display = 'none';
+    });
+
+    updateGuestList();
+});
+document.addEventListener("DOMContentLoaded", function () {
+    const toggleCameraButton = document.getElementById('toggleCameraButton');
+    const cameraFeed = document.getElementById('cameraFeed');
+    let videoStream = null;
+
+    toggleCameraButton.addEventListener('click', async function () {
+        if (videoStream) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    });
+
+    async function startCamera() {
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            cameraFeed.srcObject = videoStream;
+            cameraFeed.style.display = "block";
+            toggleCameraButton.textContent = "Disattiva Fotocamera";
+            alert("Fotocamera attivata: posiziona un QR code davanti alla camera per leggerlo.");
+            scanQRCode();
+        } catch (error) {
+            alert("Errore nell'attivazione della fotocamera: " + error.message);
+        }
+    }
+
+    function stopCamera() {
+        if (videoStream) {
+            let tracks = videoStream.getTracks();
+            tracks.forEach(track => track.stop());
+            videoStream = null;
+        }
+        cameraFeed.style.display = "none";
+        toggleCameraButton.textContent = "Attiva Fotocamera";
+        alert("Fotocamera disattivata.");
+    }
+
+function scanQRCode() {
+    if (typeof QrScanner === "undefined") {
+        alert("Errore: libreria QR Scanner non disponibile. Riprova dopo il caricamento completo della pagina.");
         return;
     }
 
-    const wb = XLSX.utils.book_new();
-    const wsData = [["Orario", "Nome Ospite", "Nota"]]; // Intestazioni delle colonne
-
-    guestList.forEach(guest => {
-        wsData.push([guest.time || "N/A", guest.text || "N/A", guest.note || ""]); // Aggiunta dati con fallback
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    // Imposta la larghezza delle colonne per migliorare la leggibilità
-    ws['!cols'] = [
-        { wch: 15 }, // Orario
-        { wch: 30 }, // Nome Ospite
-        { wch: 20 }  // Nota
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, "Lista Ospiti");
-
-    try {
-        XLSX.writeFile(wb, "Report IKEA_.xlsx");
-    } catch (error) {
-        console.error("Errore durante l'esportazione del file Excel:", error);
-        alert("Si è verificato un problema durante l'esportazione. Prova con un altro browser.");
-    }
-});
-
-
-        saveNoteButton.addEventListener('click', function() {
-            const note = noteText.value.trim();
-            if (guestToAddNote && note) {
-                const guestText = guestToAddNote.querySelector('.guestName').textContent;
-                guestList = guestList.map(guest => {
-                    if (guest.text === guestText) {
-                        guest.note = note;
-                    }
-                    return guest;
-                });
-                localStorage.setItem('guestList', JSON.stringify(guestList)); // Aggiorna in localStorage
-                guestToAddNote.querySelector('.guestNote').textContent = note;
-                noteText.value = '';
-                guestToAddNote = null;
-                addNote.style.display = 'none';
-                reorderGuestList();
-                scannedTextField.focus(); // focus back to the QR code input field
-            }
-        });
-
-        cancelNoteButton.addEventListener('click', function() {
-            noteText.value = '';
-            guestToAddNote = null;
-            addNote.style.display = 'none';
-            scannedTextField.focus(); // focus back to the QR code input field
-        });
-
-const showAllButton = document.getElementById('showAllButton');
-const allGuestsPopup = document.getElementById('allGuestsPopup');
-const allGuestsList = document.getElementById('allGuestsList');
-const closePopup = document.getElementById('closePopup');
-
-showAllButton.addEventListener('click', function () {
-    allGuestsList.innerHTML = ''; // Svuota il pop-up prima di riempirlo
-    guestList.forEach((guest, index) => {
-        const guestText = document.createElement('p');
-        guestText.textContent = `${index + 1}. ${guest.time} - ${guest.text} (${guest.note || "Nessuna nota"})`;
-        allGuestsList.appendChild(guestText);
-    });
-    allGuestsPopup.style.display = 'block';
-});
-
-closePopup.addEventListener('click', function () {
-    allGuestsPopup.style.display = 'none';
-});
-
-
-        resetButton.addEventListener('click', function() {
-            const password = prompt('Inserisci la password per confermare il reset:');
-            if (password === '2006') {
-                if (confirm('Sei sicuro di voler resettare tutti i dati?')) {
-                    guestList = [];
-                    localStorage.removeItem('guestList');
-                    guestListContainer.innerHTML = '';
-                    guestCount = 0;
-                    guestCountSpan.textContent = guestCount;
-                }
-            } else {
-                alert('Password errata. Reset annullato.');
-            }
-            reorderGuestList();
-        });
-
-        // Avviso di chiusura della pagina
-        window.addEventListener('beforeunload', function (e) {
-            e.preventDefault();
-            e.returnValue = '';
-        });
-
-      function showNotification(duplicateText) {
-    notification.style.display = 'block';
-    notificationSound.play();
-
-    const duplicateTextDiv = document.getElementById('duplicateText');
-    duplicateTextDiv.textContent = `Tessera Nr: ${duplicateText}`; 
-    duplicateTextDiv.style.display = 'block';
-
-    setTimeout(() => {
-        notification.style.display = 'none';
-        duplicateTextDiv.style.display = 'none'; // Nasconde il testo del doppione per 7 secondi
-    }, 7000);
+    const qrScanner = new QrScanner(
+        cameraFeed,
+        result => {
+            scannedTextField.value = result;
+            scannedTextField.focus();
+            stopCamera();
+            scannedTextField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        },
+        { highlightScanRegion: true, highlightCodeOutline: true }
+    );
+    qrScanner.start();
 }
 
+});
+QrScanner.WORKER_PATH = "https://unpkg.com/qr-scanner@1.4.1/qr-scanner-worker.min.js";
     </script>
+
 </body>
 </html>
