@@ -7,8 +7,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="manifest" href="/manifest.json">
-    <style>
     
+    <!-- Caricamento libreria QR Scanner -->
+    <script src="https://unpkg.com/qr-scanner@1.4.1/qr-scanner.min.js"></script>
+    <script>
+        QrScanner.WORKER_PATH = "https://unpkg.com/qr-scanner@1.4.1/qr-scanner-worker.min.js";
+    </script>
+
+    <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -17,6 +23,12 @@
         }
         h1, h2 {
             text-align: center;
+        }
+        #cameraFeed {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            margin-top: 10px;
         }
         #guestList {
             margin-top: 20px;
@@ -27,410 +39,136 @@
             border: 1px solid #ccc;
             background-color: white;
             color: black;
-            word-wrap: break-word;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .guest .guestTime {
-            flex: 0;
-            text-align: left;
-            margin-right: 10px;
-            background-color: #f0f0f0;
-            padding: 5px;
-            border-radius: 5px;
-        }
-        .guest .guestName {
-            flex: 1;
-            text-align: left;
-        }
-        .guest .guestNote {
-            flex: 1;
-            text-align: center;
-        }
-        .guest .buttons {
-            flex: 0;
-            display: flex;
-            align-items: center;
-        }
-        .guest button {
-            border: none;
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            cursor: pointer;
-            margin-left: 5px;
-        }
-        .deleteButton {
-            background-color: red;
-            color: white;
-        }
-        .addButton {
-            background-color: green;
-            color: white;
-        }
-        .highlight {
-            background-color: yellow;
-        }
-        #counterContainer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-        #counter {
-            font-size: 20px;
-            text-align: center;
-            flex: 1;
-        }
-        #searchField {
-            width: 100%;
-            max-width: 200px;
-            padding: 5px;
-            font-size: 14px;
-            color: black;
-            margin-top: 10px;
-        }
-        #scannedText {
+        #toggleCameraButton {
             display: block;
-            width: 100%;
-            max-width: 300px;
+            margin: 10px auto;
             padding: 10px;
             font-size: 16px;
-            margin: 20px auto;
-            text-align: center;
-            color: black;
-        }
-        #exportButton, #resetButton {
-            padding: 5px 10px;
-            font-size: 12px;
             cursor: pointer;
             background-color: white;
             color: black;
-            border: none;
+            border: 1px solid black;
             border-radius: 5px;
-            margin-right: 20px;
-        }
-        #notification {
-            display: none;
-            width: 100%;
-            max-width: 300px;
-            margin: 20px auto;
-            padding: 10px;
-            color: white;
-            background-color: red;
-            text-align: center;
-            border-radius: 5px;
-        }
-        #confirmDelete {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            color: black;
-            padding: 20px;
-            border: 1px solid #ccc;
-            text-align: center;
-            z-index: 1000;
-        }
-        #confirmDelete button {
-            margin: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        #addNote {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            color: black;
-            padding: 20px;
-            border: 1px solid #ccc;
-            text-align: center;
-            z-index: 1000;
-        }
-        #addNote input {
-            width: 80%;
-            padding: 5px;
-            margin-bottom: 10px;
-        }
-        #addNote button {
-            margin: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <h1>IKEA - Fuori Salone</h1>
     <h2>Scansiona Tessere IKEA Family</h2>
-    <script src="https://unpkg.com/qr-scanner@1.4.1/qr-scanner.min.js"></script>
+
     <button id="toggleCameraButton">Attiva Fotocamera</button>
-<video id="cameraFeed" style="display: none; width: 100%; max-width: 400px; margin-top: 10px;" autoplay></video>
+    <video id="cameraFeed" autoplay></video>
 
-    <input type="text" id="scannedText" placeholder="Tessera IKEA">
-    <div id="validCodeBanner" style="display: none; width: 100%; max-width: 300px; margin: 10px auto; padding: 10px; color: white; background-color: green; text-align: center; border-radius: 5px;">
-    Tessera valida!
-</div>
-    <div id="counterContainer">
-        <button id="exportButton">Esporta in Excel</button>
-        <button id="resetButton">Reset</button>
-        <button id="showAllButton">Mostra tutti</button>
-        <div id="allGuestsPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 600px; background: white; color: black; padding: 20px; border: 1px solid #ccc; z-index: 1000; text-align: center;">
-    <h3>Lista completa ospiti</h3>
-    <div id="allGuestsList" style="max-height: 400px; overflow-y: auto; text-align: left;"></div>
-    <button id="closePopup">Chiudi</button>
-        </div>
-
-
-        <div id="counter">
-            Numero IKEA Family: <span id="guestCount">0</span>
-        </div>
-        <input type="text" id="searchField" placeholder="Cerca Tessera" style="margin-left:auto;">
-    </div>
-    <div id="notification">Tessera già rilevata</div>
-    <div id="duplicateText" style="display: none; color: white; text-align: center;"></div>
-
+    <input type="text" id="scannedText" placeholder="Tessera IKEA" readonly>
     <div id="guestList"></div>
 
-    <div id="confirmDelete">
-        <p id="confirmDeleteText">Sei sicuro di voler eliminare questa voce?</p>
-        <button id="confirmButton">Conferma</button>
-        <button id="cancelButton">Annulla</button>
-    </div>
-
-    <div id="addNote">
-        <input type="text" id="noteText" maxlength="15" placeholder="Aggiungi nota">
-        <button id="saveNoteButton">Salva</button>
-        <button id="cancelNoteButton">Annulla</button>
-    </div>
-
-    <audio id="notificationSound" src="https://static.wixstatic.com/mp3/2080b2_519ca0fcc6764f71a29f6cefbeb9e0b3.mp3"></audio>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script>
-        
-document.addEventListener("DOMContentLoaded", function () {
-    const scannedTextField = document.getElementById('scannedText');
-    const guestListContainer = document.getElementById('guestList');
-    const guestCountSpan = document.getElementById('guestCount');
-    const notification = document.getElementById('notification');
-    const notificationSound = document.getElementById('notificationSound');
-    const validCodeBanner = document.getElementById('validCodeBanner');
-    const exportButton = document.getElementById('exportButton');
-    const resetButton = document.getElementById('resetButton');
-    const showAllButton = document.getElementById('showAllButton');
-    const allGuestsPopup = document.getElementById('allGuestsPopup');
-    const allGuestsList = document.getElementById('allGuestsList');
-    const closePopup = document.getElementById('closePopup');
+        document.addEventListener("DOMContentLoaded", function () {
+            const toggleCameraButton = document.getElementById('toggleCameraButton');
+            const cameraFeed = document.getElementById('cameraFeed');
+            const scannedTextField = document.getElementById('scannedText');
+            const guestListContainer = document.getElementById('guestList');
 
-    let guestList = JSON.parse(localStorage.getItem('guestList')) || [];
-    guestCountSpan.textContent = guestList.length;
+            let videoStream = null;
+            let qrScanner = null;
+            let guestList = JSON.parse(localStorage.getItem('guestList')) || [];
 
-    scannedTextField.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            const scannedText = scannedTextField.value.trim();
+            toggleCameraButton.addEventListener('click', function () {
+                if (videoStream) {
+                    stopCamera();
+                } else {
+                    startCamera();
+                }
+            });
 
-            if (!scannedText) return;
+            async function startCamera() {
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    cameraFeed.srcObject = videoStream;
+                    cameraFeed.style.display = "block";
+                    toggleCameraButton.textContent = "Disattiva Fotocamera";
+                    alert("Fotocamera attivata: inquadra un QR code o codice a barre.");
+                    
+                    qrScanner = new QrScanner(
+                        cameraFeed,
+                        result => handleScan(result),
+                        { highlightScanRegion: true, highlightCodeOutline: true }
+                    );
+                    qrScanner.start();
+                } catch (error) {
+                    alert("Errore nell'attivazione della fotocamera: " + error.message);
+                }
+            }
 
-            console.log("Codice rilevato:", scannedText);
+            function stopCamera() {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                    videoStream = null;
+                }
+                if (qrScanner) {
+                    qrScanner.stop();
+                    qrScanner.destroy();
+                    qrScanner = null;
+                }
+                cameraFeed.style.display = "none";
+                toggleCameraButton.textContent = "Attiva Fotocamera";
+            }
 
-            const existingGuest = guestList.find(guest => guest.text === scannedText);
+            function handleScan(scannedData) {
+                stopCamera();
+                scannedTextField.value = scannedData;
+                addScannedCode(scannedData);
+            }
 
-            if (existingGuest) {
-                showNotification(existingGuest.text);
-            } else {
+            function addScannedCode(scannedText) {
+                scannedText = scannedText.trim();
+                if (!scannedText) return;
+
+                const existingGuest = guestList.find(guest => guest.text === scannedText);
+                if (existingGuest) {
+                    alert("⚠️ Tessera già registrata: " + scannedText);
+                    return;
+                }
+
                 const now = new Date();
                 const guestItem = {
                     text: scannedText,
                     date: now.toLocaleDateString(),
-                    time: now.toLocaleTimeString(),
-                    note: ""
+                    time: now.toLocaleTimeString()
                 };
 
                 guestList.unshift(guestItem);
                 localStorage.setItem('guestList', JSON.stringify(guestList));
                 updateGuestList();
-
-                guestCountSpan.textContent = guestList.length;
-                showValidCodeBanner();
+                alert("✅ Tessera registrata con successo!");
             }
 
-            scannedTextField.value = '';
-        }
-    });
+            function updateGuestList() {
+                guestListContainer.innerHTML = '';
+                guestList.slice(0, 50).forEach(guest => {
+                    const guestItemElement = document.createElement('div');
+                    guestItemElement.classList.add('guest');
+                    guestItemElement.innerHTML = `
+                        <span>${guest.time} - ${guest.text}</span>
+                        <button class="deleteButton">❌</button>
+                    `;
 
-    function updateGuestList() {
-        guestListContainer.innerHTML = '';
-        guestList.slice(0, 50).forEach(guest => {
-            const guestItemElement = createGuestElement(guest);
-            guestListContainer.appendChild(guestItemElement);
-        });
-    }
+                    guestItemElement.querySelector('.deleteButton').addEventListener('click', function () {
+                        guestList = guestList.filter(g => g.text !== guest.text);
+                        localStorage.setItem('guestList', JSON.stringify(guestList));
+                        updateGuestList();
+                    });
 
-    function createGuestElement(guest) {
-        const guestItemElement = document.createElement('div');
-        guestItemElement.classList.add('guest');
-        guestItemElement.innerHTML = `
-            <span class="guestTime">${guest.time}</span>
-            <span class="guestName">${guest.text}</span>
-            <span class="guestNote">${guest.note || "Nessuna nota"}</span>
-            <div class="buttons">
-                <button class="addButton">+</button>
-                <button class="deleteButton">X</button>
-            </div>
-        `;
+                    guestListContainer.appendChild(guestItemElement);
+                });
+            }
 
-        guestItemElement.querySelector('.deleteButton').addEventListener('click', function () {
-            guestList = guestList.filter(g => g.text !== guest.text);
-            localStorage.setItem('guestList', JSON.stringify(guestList));
             updateGuestList();
-            guestCountSpan.textContent = guestList.length;
         });
-
-        return guestItemElement;
-    }
-
-    function showValidCodeBanner() {
-        validCodeBanner.style.display = 'block';
-        setTimeout(() => {
-            validCodeBanner.style.display = 'none';
-        }, 3000);
-    }
-
-    function showNotification(duplicateText) {
-        notification.style.display = 'block';
-        notificationSound.play();
-        notification.textContent = `Tessera già registrata: ${duplicateText}`;
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, 5000);
-    }
-
-    // 📤 **Esporta in Excel**
-    exportButton.addEventListener('click', function () {
-        if (guestList.length === 0) {
-            alert("Non ci sono ospiti da esportare.");
-            return;
-        }
-
-        const wb = XLSX.utils.book_new();
-        const wsData = [["Orario", "Nome Ospite", "Nota"]];
-
-        guestList.forEach(guest => {
-            wsData.push([guest.time || "N/A", guest.text || "N/A", guest.note || ""]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 20 }];
-
-        XLSX.utils.book_append_sheet(wb, ws, "Lista Ospiti");
-
-        try {
-            XLSX.writeFile(wb, "Report_IKEA.xlsx");
-        } catch (error) {
-            console.error("Errore nell'esportazione:", error);
-            alert("Errore durante l'esportazione. Riprova.");
-        }
-    });
-
-    // 🔄 **Reset Lista**
-    resetButton.addEventListener('click', function () {
-        const password = prompt("Inserisci la password per confermare il reset:");
-        if (password === "2006") {
-            if (confirm("Sei sicuro di voler resettare tutti i dati?")) {
-                guestList = [];
-                localStorage.removeItem('guestList');
-                updateGuestList();
-                guestCountSpan.textContent = 0;
-            }
-        } else {
-            alert("Password errata. Reset annullato.");
-        }
-    });
-
-    // 👀 **Mostra Tutti gli Ospiti**
-    showAllButton.addEventListener('click', function () {
-        allGuestsList.innerHTML = '';
-        guestList.forEach((guest, index) => {
-            const guestText = document.createElement('p');
-            guestText.textContent = `${index + 1}. ${guest.time} - ${guest.text} (${guest.note || "Nessuna nota"})`;
-            allGuestsList.appendChild(guestText);
-        });
-        allGuestsPopup.style.display = 'block';
-    });
-
-    closePopup.addEventListener('click', function () {
-        allGuestsPopup.style.display = 'none';
-    });
-
-    updateGuestList();
-});
-document.addEventListener("DOMContentLoaded", function () {
-    const toggleCameraButton = document.getElementById('toggleCameraButton');
-    const cameraFeed = document.getElementById('cameraFeed');
-    let videoStream = null;
-
-    toggleCameraButton.addEventListener('click', async function () {
-        if (videoStream) {
-            stopCamera();
-        } else {
-            startCamera();
-        }
-    });
-
-    async function startCamera() {
-        try {
-            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            cameraFeed.srcObject = videoStream;
-            cameraFeed.style.display = "block";
-            toggleCameraButton.textContent = "Disattiva Fotocamera";
-            alert("Fotocamera attivata: posiziona un QR code davanti alla camera per leggerlo.");
-            scanQRCode();
-        } catch (error) {
-            alert("Errore nell'attivazione della fotocamera: " + error.message);
-        }
-    }
-
-    function stopCamera() {
-        if (videoStream) {
-            let tracks = videoStream.getTracks();
-            tracks.forEach(track => track.stop());
-            videoStream = null;
-        }
-        cameraFeed.style.display = "none";
-        toggleCameraButton.textContent = "Attiva Fotocamera";
-        alert("Fotocamera disattivata.");
-    }
-
-function scanQRCode() {
-    if (typeof QrScanner === "undefined") {
-        alert("Errore: libreria QR Scanner non disponibile. Riprova dopo il caricamento completo della pagina.");
-        return;
-    }
-
-    const qrScanner = new QrScanner(
-        cameraFeed,
-        result => {
-            scannedTextField.value = result;
-            scannedTextField.focus();
-            stopCamera();
-            scannedTextField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-        },
-        { highlightScanRegion: true, highlightCodeOutline: true }
-    );
-    qrScanner.start();
-}
-
-});
-QrScanner.WORKER_PATH = "https://unpkg.com/qr-scanner@1.4.1/qr-scanner-worker.min.js";
     </script>
-
 </body>
 </html>
