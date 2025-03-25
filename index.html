@@ -189,7 +189,9 @@
     <div id="allGuestsList" style="max-height: 400px; overflow-y: auto; text-align: left;"></div>
     <button id="closePopup">Chiudi</button>
 </div>
-<audio id="notificationSound" src="https://static.wixstatic.com/mp3/2080b2_519ca0fcc6764f71a29f6cefbeb9e0b3.mp3"></audio>
+<audio id="notificationSound" preload="auto">
+  <source src="https://static.wixstatic.com/mp3/2080b2_519ca0fcc6764f71a29f6cefbeb9e0b3.mp3" type="audio/mp3">
+</audio>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
 <script>
