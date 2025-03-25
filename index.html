@@ -201,6 +201,16 @@ const exportButton = document.getElementById('exportButton');
 const resetButton = document.getElementById('resetButton');
 const notification = document.getElementById('notification');
 const notificationSound = document.getElementById('notificationSound');
+    document.body.addEventListener('click', function initAudio() {
+    notificationSound.play().then(() => {
+        notificationSound.pause();
+        notificationSound.currentTime = 0;
+    }).catch(() => {
+        // Ignora eventuali errori
+    });
+    document.body.removeEventListener('click', initAudio);
+});
+
 const confirmDelete = document.getElementById('confirmDelete');
 const confirmDeleteText = document.getElementById('confirmDeleteText');
 const addNote = document.getElementById('addNote');
